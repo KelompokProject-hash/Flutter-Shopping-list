@@ -81,6 +81,22 @@ class _GroceryListState extends State<GroceryList> {
     }
   }
 
+  void _editItem(GroceryItem item) async {
+    final int itemIndex = _shoppingList.indexOf(item);
+    final GroceryItem? updatedItem = await Navigator.of(context).push<GroceryItem>(
+      MaterialPageRoute(
+        builder: (ctx) => NewItem(item: item),
+      ),
+    );
+
+    if (updatedItem != null) {
+      setState(() {
+        _shoppingList[itemIndex] = updatedItem;
+      });
+      // Optionally, show a success message
+    }
+  }
+
   void removeItem(GroceryItem item) async {
     final index = _shoppingList.indexOf(item);
     setState(() {
@@ -135,10 +151,19 @@ class _GroceryListState extends State<GroceryList> {
               height: 24,
               color: _shoppingList[index].category.color,
             ),
-            trailing: Text(_shoppingList[index].quantity.toString()),
-          ),
-        ),
-      );
+           trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_shoppingList[index].quantity.toString()),
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: () => _editItem(_shoppingList[index]),
+                ),
+              ],
+            ),
+          ), // Closes ListTile
+        ), // Closes Dismissible
+      ); // Closes ListView.builder and ends the assignment statement
     }
 
     if (_error != "") {
