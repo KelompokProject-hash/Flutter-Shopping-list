@@ -8,7 +8,9 @@ import 'package:shopping_list/models/category.dart';
 import 'package:shopping_list/models/grocery_item.dart';
 
 class NewItem extends StatefulWidget {
-  const NewItem({super.key});
+   const NewItem({super.key, this.item});
+
+  final GroceryItem? item;
 
   @override
   State<NewItem> createState() {
@@ -23,6 +25,16 @@ class _NewItemState extends State<NewItem> {
   var _enteredCategory = categories[Categories.vegetables]!;
   var _reqInProgress = false;
 
+   @override
+  void initState() {
+    super.initState();
+    if (widget.item != null) {
+      _enteredName = widget.item!.name;
+      _enteredQuantity = widget.item!.quantity;
+      _enteredCategory = widget.item!.category;
+    }
+  }
+
   void saveItem() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
@@ -30,34 +42,51 @@ class _NewItemState extends State<NewItem> {
       setState(() {
         _reqInProgress = true;
       });
+final bodyPayload = json.encode({
+        'name': _enteredName,
+        'quantity': _enteredQuantity,
+        'category': _enteredCategory.title,
+      });
 
-      final url = Uri.https(
-          'shopping-list-e7d65-default-rtdb.asia-southeast1.firebasedatabase.app',
-          'shopping-list.json');
-
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'name': _enteredName,
-          'quantity': _enteredQuantity,
-          'category': _enteredCategory.title
-        }),
-      );
-
-      final Map<String, dynamic> resposeData = json.decode(response.body);
-
-      if (!context.mounted) {
-        return;
+      try {
+        http.Response response;
+        if (widget.item == null) { // Adding new item
+          final url = Uri.https(
+              'shopping-list-e7d65-default-rtdb.asia-southeast1.firebasedatabase.app',
+              'shopping-list.json');
+          response = await http.post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: bodyPayload,
+          );
+          final Map<String, dynamic> responseData = json.decode(response.body);
+          if (!context.mounted) return;
+          Navigator.of(context).pop(GroceryItem(
+              id: responseData['name'],
+              name: _enteredName,
+              quantity: _enteredQuantity,
+              category: _enteredCategory));
+        } else { // Editing existing item
+          final url = Uri.https(
+              'shopping-list-e7d65-default-rtdb.asia-southeast1.firebasedatabase.app',
+              'shopping-list/${widget.item!.id}.json');
+          response = await http.put(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: bodyPayload,
+          );
+          if (!context.mounted) return;
+          Navigator.of(context).pop(GroceryItem(
+              id: widget.item!.id, // Keep original ID
+              name: _enteredName,
+              quantity: _enteredQuantity,
+              category: _enteredCategory));
+        }
+      } catch (error) {
+        // Handle error, maybe show a SnackBar
+        setState(() { _reqInProgress = false; });
       }
 
-      Navigator.of(context).pop(
-        GroceryItem(
-            id: resposeData['name'],
-            name: _enteredName,
-            quantity: _enteredQuantity,
-            category: _enteredCategory),
-      );
     }
   }
 
@@ -65,7 +94,8 @@ class _NewItemState extends State<NewItem> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Add New Item"),
+        title: Text(widget.item == null ? "Add New Item" : "Edit Item"
+      ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(10),
@@ -78,6 +108,7 @@ class _NewItemState extends State<NewItem> {
                 decoration: const InputDecoration(
                   label: Text("Name"),
                 ),
+                initialValue: _enteredName,
                 validator: (value) {
                   if (value == null ||
                       value.isEmpty ||
@@ -166,7 +197,7 @@ class _NewItemState extends State<NewItem> {
                             height: 16,
                             width: 16,
                             child: CircularProgressIndicator())
-                        : const Text("Add Item"),
+                         : Text(widget.item == null ? "Add Item" : "Update Item"),
                   ),
                 ],
               ),
